@@ -1,0 +1,7 @@
+apiVersion: apps.mydomain.com/v1alpha1
+kind: K8soperator
+metadata:
+  name: k8soperator-sample
+  namespace: default
+spec:
+  replicas: 1

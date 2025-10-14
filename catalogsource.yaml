@@ -1,0 +1,10 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: k8soperator-catalog
+  namespace: olm
+spec:
+  sourceType: grpc
+  image: docker.io/vasudevdchavan/k8soperator-index:0.1.2
+  displayName: k8soperator Catalog
+  publisher: k8soperator Dev Team

@@ -1,0 +1,5 @@
+resources:
+- bases/k8soperator.clusterserviceversion.yaml
+- ../crd
+- ../rbac
+- ../manager

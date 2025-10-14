@@ -1,0 +1,45 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: k8soperator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: K8soperator is the Schema for the k8soperators API
+      displayName: K8soperator
+      kind: K8soperator
+      name: k8soperators.apps.mydomain.com
+      version: v1alpha1
+  description: Sample Operator containing 2 deployment and service part of CRD
+  displayName: k8soperator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - demo
+  - workshop
+  links:
+  - name: K8soperator
+    url: https://k8soperator.apps.mydomain.com
+  maturity: alpha
+  provider:
+    name: Vasudev Chavan
+  version: 0.0.0

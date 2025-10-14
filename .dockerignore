@@ -9,3 +9,9 @@
 # Re-include Go module files
 !go.mod
 !go.sum
+!bundle/
+!bundle/**
+
+# ✅ Re-include catalog directory so it's not ignored
+!catalog/
+!catalog/**

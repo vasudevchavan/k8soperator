@@ -11,7 +11,7 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: k8soperator-controller-manager
   namespace: system
   labels:
     control-plane: controller-manager

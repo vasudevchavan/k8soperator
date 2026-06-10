@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Configuration
 IMG="docker.io/vasudevdchavan/k8soperator"
-VERSION="0.1.2"
+VERSION="0.1.3"
 OPERATOR_NAME="k8soperator"
 NAMESPACE="default"
 
@@ -62,7 +62,7 @@ kubectl apply -f catalogsource.yaml
 
 # Step 7: Wait for catalog to be ready
 echo "⏳ Waiting for catalog to be ready..."
-kubectl wait --for=condition=Ready pod -l olm.catalogSource=${OPERATOR_NAME}-catalog -n olm --timeout=120s
+kubectl wait --for=jsonpath='{.status.connectionState.lastObservedState}'=READY catalogsource/${OPERATOR_NAME}-catalog -n olm --timeout=180s
 
 # Step 8: Create OperatorGroup
 echo "👥 Creating OperatorGroup..."

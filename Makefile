@@ -2,7 +2,7 @@
 # ⚙️ Project Variables
 # =====================
 IMG ?= docker.io/vasudevdchavan/k8soperator
-VERSION ?= 0.1.2
+VERSION ?= 0.1.3
 
 BUNDLE_IMG ?= $(IMG)-bundle:$(VERSION)
 INDEX_IMG ?= $(IMG)-index:$(VERSION)
@@ -103,8 +103,8 @@ uninstall: kustomize ## Uninstall CRDs
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle
-	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG):$(VERSION)
+	operator-sdk generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION)
 
 .PHONY: bundle-build

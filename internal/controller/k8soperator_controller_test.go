@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	appsv1alpha1 "github.com/vasudevchavan/k8soperator/api/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 var _ = Describe("K8soperator Controller", func() {
@@ -79,6 +80,75 @@ var _ = Describe("K8soperator Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
 			// Example: If you expect a certain status condition after reconciliation, verify it here.
+		})
+	})
+
+	Context("When reconciling a resource in MaintenanceMode", func() {
+		const resourceName = "maintenance-resource"
+
+		ctx := context.Background()
+
+		typeNamespacedName := types.NamespacedName{
+			Name:      resourceName,
+			Namespace: "default",
+		}
+
+		BeforeEach(func() {
+			By("creating the custom resource in MaintenanceMode")
+			resource := &appsv1alpha1.K8soperator{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: "default",
+				},
+				Spec: appsv1alpha1.K8soperatorSpec{
+					MaintenanceMode: true,
+					Replicas:        2,
+				},
+			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			resource := &appsv1alpha1.K8soperator{}
+			err := k8sClient.Get(ctx, typeNamespacedName, resource)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Cleanup the specific resource instance K8soperator")
+			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+		})
+
+		It("should update status to MaintenanceMode and not create child resources", func() {
+			By("Reconciling the resource")
+			controllerReconciler := &K8soperatorReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			// 1. Verify status has Maintenance condition set to True
+			updatedResource := &appsv1alpha1.K8soperator{}
+			err = k8sClient.Get(ctx, typeNamespacedName, updatedResource)
+			Expect(err).NotTo(HaveOccurred())
+
+			var maintCond *metav1.Condition
+			for i, cond := range updatedResource.Status.Conditions {
+				if cond.Type == "Maintenance" {
+					maintCond = &updatedResource.Status.Conditions[i]
+					break
+				}
+			}
+			Expect(maintCond).NotTo(BeNil())
+			Expect(maintCond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(maintCond.Reason).To(Equal("MaintenanceModeEnabled"))
+
+			// 2. Verify child deployment was NOT created
+			webAppDeployment := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: webAppName, Namespace: "default"}, webAppDeployment)
+			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 	})
 })

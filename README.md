@@ -116,6 +116,16 @@ spec:
   replicas: 1
 ```
 
+### Maintenance Mode
+The operator supports `maintenanceMode` in the `spec`. When `maintenanceMode: true` is set, the controller skips active reconciliation and does not create or update managed child resources.
+
+While maintenance mode is enabled, the operator updates the resource status with a `Maintenance` condition. This condition has:
+- `status: True`
+- `reason: MaintenanceModeEnabled`
+- `message: Reconciliation suspended while maintenanceMode is true`
+
+Clear the maintenance mode by setting `maintenanceMode: false` to allow normal reconciliation to resume.
+
 ## Quick Deploy
 
 ```bash

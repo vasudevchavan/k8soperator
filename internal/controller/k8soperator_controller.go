@@ -42,16 +42,26 @@ const (
 	ConditionAvailable   = "Available"
 )
 
-// setCondition updates or adds a condition to the CR status
-func setCondition(cr *appsv1alpha1.K8soperator, condition metav1.Condition) {
-	condition.LastTransitionTime = metav1.Now()
+// setCondition updates or adds a condition to the CR status.
+// It returns true if the status, reason, or message of the condition has changed.
+func setCondition(cr *appsv1alpha1.K8soperator, condition metav1.Condition) bool {
 	for i, cond := range cr.Status.Conditions {
 		if cond.Type == condition.Type {
+			if cond.Status == condition.Status && cond.Reason == condition.Reason && cond.Message == condition.Message {
+				return false
+			}
+			if cond.Status == condition.Status {
+				condition.LastTransitionTime = cond.LastTransitionTime
+			} else {
+				condition.LastTransitionTime = metav1.Now()
+			}
 			cr.Status.Conditions[i] = condition
-			return
+			return true
 		}
 	}
+	condition.LastTransitionTime = metav1.Now()
 	cr.Status.Conditions = append(cr.Status.Conditions, condition)
+	return true
 }
 
 // K8soperatorReconciler reconciles a K8soperator object
@@ -79,6 +89,41 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
+	}
+
+	statusChanged := false
+
+	// Honor maintenanceMode: if set, skip active reconciliation and surface a condition.
+	if k8soperator.Spec.MaintenanceMode {
+		log.Info("maintenance mode enabled; skipping reconciliation", "namespacedName", req.NamespacedName)
+
+		if setCondition(&k8soperator, metav1.Condition{
+			Type:    "Maintenance",
+			Status:  metav1.ConditionTrue,
+			Reason:  "MaintenanceModeEnabled",
+			Message: "Reconciliation suspended while maintenanceMode is true",
+		}) {
+			statusChanged = true
+		}
+
+		if statusChanged {
+			if err := r.Status().Update(ctx, &k8soperator); err != nil {
+				log.Error(err, "unable to update K8soperator status while setting Maintenance condition")
+				return ctrl.Result{}, err
+			}
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	// Ensure Maintenance condition is set to False if it was previously True
+	if setCondition(&k8soperator, metav1.Condition{
+		Type:    "Maintenance",
+		Status:  metav1.ConditionFalse,
+		Reason:  "MaintenanceModeDisabled",
+		Message: "Reconciliation is active",
+	}) {
+		statusChanged = true
 	}
 
 	replicas := k8soperator.Spec.Replicas
@@ -189,38 +234,46 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	var webStatus appsv1.Deployment
 	err = r.Get(ctx, client.ObjectKey{Name: webAppName, Namespace: k8soperator.Namespace}, &webStatus)
 	if err == nil && webStatus.Status.ReadyReplicas >= replicas {
-		setCondition(&k8soperator, metav1.Condition{
+		if setCondition(&k8soperator, metav1.Condition{
 			Type:    ConditionWebAppReady,
 			Status:  metav1.ConditionTrue,
 			Reason:  "DeploymentReady",
 			Message: "Web application is ready",
-		})
+		}) {
+			statusChanged = true
+		}
 	} else {
-		setCondition(&k8soperator, metav1.Condition{
+		if setCondition(&k8soperator, metav1.Condition{
 			Type:    ConditionWebAppReady,
 			Status:  metav1.ConditionFalse,
 			Reason:  "NotReady",
 			Message: "Web application is not ready",
-		})
+		}) {
+			statusChanged = true
+		}
 	}
 
 	// DB deployment status
 	var dbStatus appsv1.Deployment
 	err = r.Get(ctx, client.ObjectKey{Name: dbAppName, Namespace: k8soperator.Namespace}, &dbStatus)
 	if err == nil && dbStatus.Status.ReadyReplicas >= replicas {
-		setCondition(&k8soperator, metav1.Condition{
+		if setCondition(&k8soperator, metav1.Condition{
 			Type:    ConditionDBReady,
 			Status:  metav1.ConditionTrue,
 			Reason:  "DeploymentReady",
 			Message: "Database is ready",
-		})
+		}) {
+			statusChanged = true
+		}
 	} else {
-		setCondition(&k8soperator, metav1.Condition{
+		if setCondition(&k8soperator, metav1.Condition{
 			Type:    ConditionDBReady,
 			Status:  metav1.ConditionFalse,
 			Reason:  "NotReady",
 			Message: "Database is not ready",
-		})
+		}) {
+			statusChanged = true
+		}
 	}
 
 	// Overall Available condition
@@ -235,25 +288,31 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 	if webReady && dbReady {
-		setCondition(&k8soperator, metav1.Condition{
+		if setCondition(&k8soperator, metav1.Condition{
 			Type:    ConditionAvailable,
 			Status:  metav1.ConditionTrue,
 			Reason:  "ComponentsReady",
 			Message: "Both web app and database are ready",
-		})
+		}) {
+			statusChanged = true
+		}
 	} else {
-		setCondition(&k8soperator, metav1.Condition{
+		if setCondition(&k8soperator, metav1.Condition{
 			Type:    ConditionAvailable,
 			Status:  metav1.ConditionFalse,
 			Reason:  "WaitingForComponents",
 			Message: "Waiting for one or more components to become ready",
-		})
+		}) {
+			statusChanged = true
+		}
 	}
 
 	// Update the status subresource
-	if err := r.Status().Update(ctx, &k8soperator); err != nil {
-		log.Error(err, "unable to update K8soperator status")
-		return ctrl.Result{}, err
+	if statusChanged {
+		if err := r.Status().Update(ctx, &k8soperator); err != nil {
+			log.Error(err, "unable to update K8soperator status")
+			return ctrl.Result{}, err
+		}
 	}
 
 	log.Info("Reconciliation completed successfully")

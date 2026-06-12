@@ -5,3 +5,4 @@ metadata:
   namespace: default
 spec:
   replicas: 1
+  maintenanceMode: true

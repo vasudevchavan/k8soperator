@@ -40,7 +40,8 @@ type K8soperatorSpec struct {
 
 	// foo is an example field of K8soperator. Edit k8soperator_types.go to remove/update
 	// +optional
-	Replicas int32 `json:"replicas,omitempty"`
+	Replicas        int32 `json:"replicas,omitempty"`
+	MaintenanceMode bool  `json:"maintenanceMode,omitempty"`
 }
 
 // K8soperatorStatus defines the observed state of K8soperator.

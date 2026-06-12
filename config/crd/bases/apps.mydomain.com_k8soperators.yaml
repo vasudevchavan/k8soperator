@@ -39,6 +39,8 @@ spec:
           spec:
             description: spec defines the desired state of K8soperator
             properties:
+              maintenanceMode:
+                type: boolean
               replicas:
                 description: foo is an example field of K8soperator. Edit k8soperator_types.go
                   to remove/update

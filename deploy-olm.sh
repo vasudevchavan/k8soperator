@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Configuration
 IMG="docker.io/vasudevdchavan/k8soperator"
-VERSION="0.1.3"
+VERSION="0.1.4"
 OPERATOR_NAME="k8soperator"
 NAMESPACE="default"
 

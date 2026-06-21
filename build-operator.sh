@@ -5,7 +5,7 @@ set -xeuo pipefail
 # Configurable Variables
 # -----------------------------
 IMG="docker.io/vasudevdchavan/k8soperator"   # Manager image
-VERSION="0.1.3"                              # Bundle/Index version
+VERSION="0.1.4"                              # Bundle/Index version
 OPERATOR_NAME="k8soperator"                  # Operator name
 
 # Derived images

@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	appsv1alpha1 "github.com/vasudevchavan/k8soperator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -132,10 +133,14 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	log.Info("Using replicas", "specReplicas", k8soperator.Spec.Replicas, "finalReplicas", replicas)
 
+	// Namespace resource names by CR name so multiple K8soperator instances don't collide.
+	webAppResourceName := fmt.Sprintf("%s-%s", k8soperator.Name, webAppName)
+	dbResourceName := fmt.Sprintf("%s-%s", k8soperator.Name, dbAppName)
+
 	// Create/update web app deployment
 	webAppDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      webAppName,
+			Name:      webAppResourceName,
 			Namespace: k8soperator.Namespace,
 		},
 	}
@@ -144,11 +149,11 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		webAppDeployment.Spec = appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": webAppName},
+				MatchLabels: map[string]string{"app": webAppResourceName},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": webAppName},
+					Labels: map[string]string{"app": webAppResourceName},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -169,7 +174,7 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Create/update web app service
 	webAppService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      webAppName,
+			Name:      webAppResourceName,
 			Namespace: k8soperator.Namespace,
 		},
 	}
@@ -178,13 +183,12 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		webAppService.Spec = corev1.ServiceSpec{
 			Type: corev1.ServiceTypeNodePort,
 			Selector: map[string]string{
-				"app": webAppName,
+				"app": webAppResourceName,
 			},
 			Ports: []corev1.ServicePort{{
 				Port:       80,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(80),
-				NodePort:   30080,
 			}},
 		}
 		return controllerutil.SetControllerReference(&k8soperator, webAppService, r.Scheme)
@@ -197,7 +201,7 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Create/update DB deployment
 	dbDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dbAppName,
+			Name:      dbResourceName,
 			Namespace: k8soperator.Namespace,
 		},
 	}
@@ -206,11 +210,11 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		dbDeployment.Spec = appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": dbAppName},
+				MatchLabels: map[string]string{"app": dbResourceName},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": dbAppName},
+					Labels: map[string]string{"app": dbResourceName},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -232,7 +236,7 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Web app deployment status
 	var webStatus appsv1.Deployment
-	err = r.Get(ctx, client.ObjectKey{Name: webAppName, Namespace: k8soperator.Namespace}, &webStatus)
+	err = r.Get(ctx, client.ObjectKey{Name: webAppResourceName, Namespace: k8soperator.Namespace}, &webStatus)
 	if err == nil && webStatus.Status.ReadyReplicas >= replicas {
 		if setCondition(&k8soperator, metav1.Condition{
 			Type:    ConditionWebAppReady,
@@ -255,7 +259,7 @@ func (r *K8soperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// DB deployment status
 	var dbStatus appsv1.Deployment
-	err = r.Get(ctx, client.ObjectKey{Name: dbAppName, Namespace: k8soperator.Namespace}, &dbStatus)
+	err = r.Get(ctx, client.ObjectKey{Name: dbResourceName, Namespace: k8soperator.Namespace}, &dbStatus)
 	if err == nil && dbStatus.Status.ReadyReplicas >= replicas {
 		if setCondition(&k8soperator, metav1.Condition{
 			Type:    ConditionDBReady,

@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: docker.io/vasudevdchavan/k8soperator
-  newTag: 0.1.3
+  newTag: 0.1.4
